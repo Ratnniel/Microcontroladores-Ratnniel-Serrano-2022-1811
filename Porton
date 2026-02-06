@@ -2,13 +2,14 @@
 #include <stdlib.h>
 
 /* --------- Estados --------- */
-#define Estado_Inicio     0
-#define Estado_Abierto    1
-#define Estado_Cerrado    2
-#define Estado_Abriendo   3
-#define Estado_Cerrando   4
-#define Estado_Error      5
-#define Estado_Stop       6
+#define Estado_Inicio       0
+#define Estado_Abierto      1
+#define Estado_Cerrado      2
+#define Estado_Abriendo     3
+#define Estado_Cerrando     4
+#define Estado_Desconocido  5
+#define Estado_Error        6
+#define Estado_Stop         7
 
 /* --------- Constantes --------- */
 #define Motor_ON   1
@@ -46,12 +47,12 @@ void Func_Estado_Inicio(void) {
     io.lamp = Lamp_OFF;
     io.buzzer = Buzzer_OFF;
 
-    if (io.fcc)
-        Estado_Siguiente = Estado_Cerrado;
-    else if (io.fca)
+    if (io.fca)
         Estado_Siguiente = Estado_Abierto;
+    else if (io.fcc)
+        Estado_Siguiente = Estado_Cerrado;
     else
-        Estado_Siguiente = Estado_Stop;
+        Estado_Siguiente = Estado_Desconocido;
 }
 
 void Func_Estado_Abierto(void) {
@@ -104,6 +105,18 @@ void Func_Estado_Cerrando(void) {
     }
 }
 
+void Func_Estado_Desconocido(void) {
+
+    io.ma = Motor_OFF;
+    io.mc = Motor_OFF;
+    io.lamp = Lamp_ON;
+
+    if (io.ba)
+        Estado_Siguiente = Estado_Abriendo;
+    else if (io.bc)
+        Estado_Siguiente = Estado_Cerrando;
+}
+
 void Func_Estado_Stop(void) {
 
     io.ma = Motor_OFF;
@@ -123,8 +136,10 @@ void Func_Estado_Error(void) {
     io.lamp = Lamp_ON;
     io.buzzer = Buzzer_ON;
 
-    if (!io.ftc && !io.be)
+    if (!io.ftc && !io.be) {
+        io.buzzer = Buzzer_OFF;
         Estado_Siguiente = Estado_Stop;
+    }
 }
 
 /* --------- Programa principal --------- */
@@ -155,6 +170,10 @@ int main(void) {
 
             case Estado_Cerrando:
                 Func_Estado_Cerrando();
+                break;
+
+            case Estado_Desconocido:
+                Func_Estado_Desconocido();
                 break;
 
             case Estado_Stop:
