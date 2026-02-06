@@ -19,24 +19,27 @@
 #define Buzzer_ON  1
 #define Buzzer_OFF 0
 
+#define Run_Time   3600   // Tiempo máximo de movimiento
+
 /* --------- Entradas / Salidas --------- */
 struct IO {
-    unsigned int fca;    // Final de carrera abierto
-    unsigned int fcc;    // Final de carrera cerrado
-    unsigned int ftc;    // Fotocelda
-    unsigned int ba;     // Botón abrir
-    unsigned int bc;     // Botón cerrar
-    unsigned int bs;     // Botón stop
-    unsigned int be;     // Botón emergencia
-    unsigned int ma;     // Motor abrir
-    unsigned int mc;     // Motor cerrar
-    unsigned int lamp;   // Lámpara
-    unsigned int buzzer; // Buzzer
+    unsigned int fca;
+    unsigned int fcc;
+    unsigned int ftc;
+    unsigned int ba;
+    unsigned int bc;
+    unsigned int bs;
+    unsigned int be;
+    unsigned int ma;
+    unsigned int mc;
+    unsigned int lamp;
+    unsigned int buzzer;
 } io;
 
 /* --------- Variables de estado --------- */
 int Estado_Actual = Estado_Inicio;
 int Estado_Siguiente = Estado_Inicio;
+int RunTimer = 0;   // Contador de tiempo
 
 /* --------- Funciones de estados --------- */
 
@@ -46,6 +49,7 @@ void Func_Estado_Inicio(void) {
     io.mc = Motor_OFF;
     io.lamp = Lamp_OFF;
     io.buzzer = Buzzer_OFF;
+    RunTimer = 0;
 
     if (io.fca)
         Estado_Siguiente = Estado_Abierto;
@@ -60,6 +64,7 @@ void Func_Estado_Abierto(void) {
     io.ma = Motor_OFF;
     io.mc = Motor_OFF;
     io.lamp = Lamp_OFF;
+    RunTimer = 0;
 
     if (io.bc)
         Estado_Siguiente = Estado_Cerrando;
@@ -70,6 +75,7 @@ void Func_Estado_Cerrado(void) {
     io.ma = Motor_OFF;
     io.mc = Motor_OFF;
     io.lamp = Lamp_OFF;
+    RunTimer = 0;
 
     if (io.ba)
         Estado_Siguiente = Estado_Abriendo;
@@ -81,12 +87,21 @@ void Func_Estado_Abriendo(void) {
     io.mc = Motor_OFF;
     io.lamp = Lamp_ON;
 
+    RunTimer++;   // empieza a contar tiempo
+
     if (io.fca) {
         io.ma = Motor_OFF;
+        RunTimer = 0;
         Estado_Siguiente = Estado_Abierto;
     }
     else if (io.bs) {
+        RunTimer = 0;
         Estado_Siguiente = Estado_Stop;
+    }
+    else if (RunTimer >= Run_Time) {
+        io.ma = Motor_OFF;
+        RunTimer = 0;
+        Estado_Siguiente = Estado_Error;
     }
 }
 
@@ -96,11 +111,21 @@ void Func_Estado_Cerrando(void) {
     io.mc = Motor_ON;
     io.lamp = Lamp_ON;
 
+    RunTimer++;
+
     if (io.fcc) {
         io.mc = Motor_OFF;
+        RunTimer = 0;
         Estado_Siguiente = Estado_Cerrado;
     }
     else if (io.ftc || io.be) {
+        io.mc = Motor_OFF;
+        RunTimer = 0;
+        Estado_Siguiente = Estado_Error;
+    }
+    else if (RunTimer >= Run_Time) {
+        io.mc = Motor_OFF;
+        RunTimer = 0;
         Estado_Siguiente = Estado_Error;
     }
 }
@@ -110,6 +135,7 @@ void Func_Estado_Desconocido(void) {
     io.ma = Motor_OFF;
     io.mc = Motor_OFF;
     io.lamp = Lamp_ON;
+    RunTimer = 0;
 
     if (io.ba)
         Estado_Siguiente = Estado_Abriendo;
@@ -122,6 +148,7 @@ void Func_Estado_Stop(void) {
     io.ma = Motor_OFF;
     io.mc = Motor_OFF;
     io.lamp = Lamp_OFF;
+    RunTimer = 0;
 
     if (io.ba)
         Estado_Siguiente = Estado_Abriendo;
@@ -135,6 +162,7 @@ void Func_Estado_Error(void) {
     io.mc = Motor_OFF;
     io.lamp = Lamp_ON;
     io.buzzer = Buzzer_ON;
+    RunTimer = 0;
 
     if (!io.ftc && !io.be) {
         io.buzzer = Buzzer_OFF;
