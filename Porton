@@ -1,0 +1,169 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+/* --------- Estados --------- */
+#define Estado_Inicio     0
+#define Estado_Abierto    1
+#define Estado_Cerrado    2
+#define Estado_Abriendo   3
+#define Estado_Cerrando   4
+#define Estado_Error      5
+#define Estado_Stop       6
+
+/* --------- Constantes --------- */
+#define Motor_ON   1
+#define Motor_OFF  0
+#define Lamp_ON    1
+#define Lamp_OFF   0
+#define Buzzer_ON  1
+#define Buzzer_OFF 0
+
+/* --------- Entradas / Salidas --------- */
+struct IO {
+    unsigned int fca;    // Final de carrera abierto
+    unsigned int fcc;    // Final de carrera cerrado
+    unsigned int ftc;    // Fotocelda
+    unsigned int ba;     // Botón abrir
+    unsigned int bc;     // Botón cerrar
+    unsigned int bs;     // Botón stop
+    unsigned int be;     // Botón emergencia
+    unsigned int ma;     // Motor abrir
+    unsigned int mc;     // Motor cerrar
+    unsigned int lamp;   // Lámpara
+    unsigned int buzzer; // Buzzer
+} io;
+
+/* --------- Variables de estado --------- */
+int Estado_Actual = Estado_Inicio;
+int Estado_Siguiente = Estado_Inicio;
+
+/* --------- Funciones de estados --------- */
+
+void Func_Estado_Inicio(void) {
+
+    io.ma = Motor_OFF;
+    io.mc = Motor_OFF;
+    io.lamp = Lamp_OFF;
+    io.buzzer = Buzzer_OFF;
+
+    if (io.fcc)
+        Estado_Siguiente = Estado_Cerrado;
+    else if (io.fca)
+        Estado_Siguiente = Estado_Abierto;
+    else
+        Estado_Siguiente = Estado_Stop;
+}
+
+void Func_Estado_Abierto(void) {
+
+    io.ma = Motor_OFF;
+    io.mc = Motor_OFF;
+    io.lamp = Lamp_OFF;
+
+    if (io.bc)
+        Estado_Siguiente = Estado_Cerrando;
+}
+
+void Func_Estado_Cerrado(void) {
+
+    io.ma = Motor_OFF;
+    io.mc = Motor_OFF;
+    io.lamp = Lamp_OFF;
+
+    if (io.ba)
+        Estado_Siguiente = Estado_Abriendo;
+}
+
+void Func_Estado_Abriendo(void) {
+
+    io.ma = Motor_ON;
+    io.mc = Motor_OFF;
+    io.lamp = Lamp_ON;
+
+    if (io.fca) {
+        io.ma = Motor_OFF;
+        Estado_Siguiente = Estado_Abierto;
+    }
+    else if (io.bs) {
+        Estado_Siguiente = Estado_Stop;
+    }
+}
+
+void Func_Estado_Cerrando(void) {
+
+    io.ma = Motor_OFF;
+    io.mc = Motor_ON;
+    io.lamp = Lamp_ON;
+
+    if (io.fcc) {
+        io.mc = Motor_OFF;
+        Estado_Siguiente = Estado_Cerrado;
+    }
+    else if (io.ftc || io.be) {
+        Estado_Siguiente = Estado_Error;
+    }
+}
+
+void Func_Estado_Stop(void) {
+
+    io.ma = Motor_OFF;
+    io.mc = Motor_OFF;
+    io.lamp = Lamp_OFF;
+
+    if (io.ba)
+        Estado_Siguiente = Estado_Abriendo;
+    else if (io.bc)
+        Estado_Siguiente = Estado_Cerrando;
+}
+
+void Func_Estado_Error(void) {
+
+    io.ma = Motor_OFF;
+    io.mc = Motor_OFF;
+    io.lamp = Lamp_ON;
+    io.buzzer = Buzzer_ON;
+
+    if (!io.ftc && !io.be)
+        Estado_Siguiente = Estado_Stop;
+}
+
+/* --------- Programa principal --------- */
+
+int main(void) {
+
+    while (1) {
+
+        Estado_Actual = Estado_Siguiente;
+
+        switch (Estado_Actual) {
+
+            case Estado_Inicio:
+                Func_Estado_Inicio();
+                break;
+
+            case Estado_Abierto:
+                Func_Estado_Abierto();
+                break;
+
+            case Estado_Cerrado:
+                Func_Estado_Cerrado();
+                break;
+
+            case Estado_Abriendo:
+                Func_Estado_Abriendo();
+                break;
+
+            case Estado_Cerrando:
+                Func_Estado_Cerrando();
+                break;
+
+            case Estado_Stop:
+                Func_Estado_Stop();
+                break;
+
+            case Estado_Error:
+                Func_Estado_Error();
+                break;
+        }
+    }
+}
